@@ -21,5 +21,6 @@ class Loader{
         int load_xdp(const char* obj_path, const char* prog_name, const char* interface, const char*mode);
         int unload_xdp(const char* mode, const char* interface);
         int getFD() const;
+        int get_prog_fd() const;
         ~Loader();
 };

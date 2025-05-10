@@ -19,7 +19,7 @@
 
 // Modify this definitions according to your needs!
 #define TOKEN_BUCKET_CAPACITY      1000
-#define TOKEN_BUCKET_RATE          50
+#define TOKEN_BUCKET_RATE          5
 #define TOKEN_REFILL_RATE          TEN_MS_IN_NS
 #define TOKEN_EXHAUSTED_LIMIT      3
 #define TOKEN_EXHAUSTED_TIME       ONE_HOUR_IN_NS // Time to block IP

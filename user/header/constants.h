@@ -48,3 +48,27 @@ const char* const status_names[] = {
     "disabled",
     "enabled"
 };
+
+const char* const stat_labels[] = {
+    "Dropped Packets",
+    "Passed Packets",
+    "SYN Packets",
+    "TCP Packets",
+    "UDP Packets",
+    "ICMP Packets"
+};
+
+enum log_level
+{
+    INFO,
+    WARN,
+    ERROR,
+    DEBUG
+};
+
+const char* const log_level_to_names[] = {
+    "INFO",
+    "WARN",
+    "ERROR",
+    "DEBUG"
+};

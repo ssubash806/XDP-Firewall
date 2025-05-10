@@ -123,9 +123,46 @@ static __always_inline __u8 is_feature_enabled(__u32 feature)
 
 static __always_inline void update_stat_map(__u32 offset)
 {
-    __u64* stat = bpf_map_lookup_elem(&stat_map, &offset);
+    __u64* stat = (__u64*)bpf_map_lookup_elem(&stat_map, &offset);
     if(stat != NULL)
     {
         *stat = *stat + 1;
+    }
+}
+
+static __always_inline void build_tuple(struct client_tuple *client,
+                                        void* ip_hdr,
+                                        void* trans_hdr,
+                                        int is_ipv6)
+{
+    memset(client, 0, sizeof(*client));
+    __u8 trans_protocol;
+    if(is_ipv6)
+    {
+        struct ipv6hdr* ipv6_hdr = (struct ipv6hdr*) ip_hdr;
+        memcpy(client->src_ipv6, &ipv6_hdr->saddr, sizeof((*client).src_ipv6));
+        memcpy(client->dest_ipv6, &ipv6_hdr->daddr, sizeof((*client).dest_ipv6));
+        client->protocol = ipv6_hdr->nexthdr;
+        trans_protocol = ipv6_hdr->nexthdr;
+    }
+    else
+    {
+        struct iphdr* ipv4_hdr = (struct iphdr*) ip_hdr;
+        client->src_ipv4 = ipv4_hdr->saddr;
+        client->dest_ipv4 = ipv4_hdr->daddr;
+        client->protocol = ipv4_hdr->protocol;
+        trans_protocol = ipv4_hdr->protocol;
+    }
+    if(trans_protocol == IPPROTO_TCP)
+    {
+        struct tcphdr* tcp = (struct tcphdr*) trans_hdr;
+        client->src_port = tcp->source;
+        client->dst_port = tcp->dest;
+    }
+    else if(trans_protocol == IPPROTO_UDP)
+    {
+        struct udphdr* udp = (struct udphdr*) trans_hdr;
+        client->src_port = udp->source;
+        client->dst_port = udp->dest;
     }
 }

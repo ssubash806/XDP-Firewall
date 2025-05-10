@@ -218,6 +218,11 @@ int Loader::getFD() const
     return this->prog_fd;
 }
 
+int Loader::get_prog_fd() const
+{
+    return this->prog_fd;
+}
+
 Loader::~Loader()
 {
     if(prog_fd)

@@ -22,6 +22,22 @@ bool convert_ipv4_to_u32(const char* ip_str, __u32* out_ip)
     }
 }
 
+bool convert_ipv6_to_u128(const char* ip_str, __u32 out_ip[4])
+{
+    if (ip_str == nullptr || out_ip == nullptr)
+        return false;
+
+    struct in6_addr addr6;
+    int ret = inet_pton(AF_INET6, ip_str, &addr6);
+    if (ret == 1)
+    {
+        memcpy(out_ip, &addr6, 16);
+        return true;
+    }
+    return false;
+}
+
+
 __u64 convert_duration(const char* duration, bool& error)
 {
     error = false; // Default: no error
@@ -126,7 +142,7 @@ int get_feature_enum_from_string(const char* feature_name)
     if (strcmp(feature_name, "stat_conn") == 0) {
         return F_STAT_CONN;
     }
-    else if (strcmp(feature_name, "lpm_rule") == 0) {
+    else if (strcmp(feature_name, "cidr_rule") == 0) {
         return F_LPM_RULE;
     }
     else if (strcmp(feature_name, "ip_block") == 0) {
@@ -199,4 +215,10 @@ bool u32_to_ipv4_str(char* out, size_t out_len, __u32 ip) {
 
     const char* result = inet_ntop(AF_INET, &addr, out, out_len);
     return result != nullptr;
+}
+
+void print_line(char character, int times)
+{
+    std::cout << std::setfill(character) << std::setw(times) << "" <<std::endl;
+    std::cout << std::setfill(' ');
 }

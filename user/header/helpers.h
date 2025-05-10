@@ -23,6 +23,8 @@ bool is_root();
    Param 2: pointer to the converted decimal to be stored*/
 bool convert_ipv4_to_u32(const char* ip_str, __u32* out_ip);
 
+bool convert_ipv6_to_u128(const char* ip_str, __u32 out_ip[4]);
+
 /* Given the duration in 3 different formats as: 
    xm for minute
    xh for hour
@@ -66,3 +68,5 @@ std::string epoch_to_local_string(__u64 epoch_time_sec);
 
 // Convert the u32 ipv4 into dotted decimal and store it in the passed char array
 bool u32_to_ipv4_str(char* out, size_t out_len, __u32 ip);
+
+void print_line(char character, int times);

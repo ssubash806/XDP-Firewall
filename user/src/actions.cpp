@@ -72,7 +72,7 @@ void Actions::enable_feature(__u32 feature, __u8 status)
     }
 }
 
-void Actions::enable_feature(const char* feature, const char* status)
+void Actions::set_feature(const char* feature, const char* status)
 {
     __u32 feature_off = get_feature_enum_from_string(feature);
     if(feature_off == F_INVALID)
@@ -456,7 +456,7 @@ std::vector<std::pair<__u32, struct block_stats>> Actions::get_ip_block()
     {
         std::cout<< "Map " << maps_to_names[map] <<" is either not loaded or not found!" << std::endl;
     }
-    return std::move(ip_block_data);
+    return ip_block_data;
 }
 
 std::vector<std::pair<__u16, struct block_stats>> Actions::get_port_block()
@@ -481,7 +481,29 @@ std::vector<std::pair<__u16, struct block_stats>> Actions::get_port_block()
     {
         std::cout<< "Map " << maps_to_names[map] <<" is either not loaded or not found!" << std::endl;
     }
-    return std::move(port_block_data);
+    return (port_block_data);
+}
+
+std::optional<struct block_stats> Actions::get_block_stat_from_ipv4(const char* ip)
+{
+    auto ip_stats = get_ip_block();
+    if(ip_stats.empty())
+    {
+        return std::nullopt;
+    }
+    __u32 dec_ip = 0;
+    if(!convert_ipv4_to_u32(ip, &dec_ip))
+    {
+        std::cerr << "Invalid IP provided: " << ip << std::endl;
+        return std::nullopt;
+    }
+    for(auto& ip_stat: ip_stats)
+    {
+        if(ip_stat.first == dec_ip)
+            return ip_stat.second;
+        
+    }
+    return std::nullopt;
 }
 
 void Actions::print_port_block()
@@ -532,6 +554,8 @@ void Actions::print_ip_block()
         return;
     }
     
+    std::cout << "IP blocked status" << std::endl;
+    print_line('-', 60);
     for(auto& ip: ip_block)
     {
         char ip_addr[INET_ADDRSTRLEN];
@@ -559,16 +583,100 @@ void Actions::print_ip_block()
     }
 }
 
+std::vector<__u64> Actions::get_overall_stat()
+{
+    int map = maps::STAT_MAP;
+    int map_fd = get_map_fd(maps_to_names[map]);
+    std::vector<__u64> stats;
+    if(map_fd > 0)
+    {
+        for (__u32 i = 0; i <= S_ICMP; ++i)
+        {
+            __u64 value = 0;
+            if (bpf_map_lookup_elem(map_fd, &i, &value) == 0)
+            {
+                stats.push_back(value);
+            }
+            else
+            {
+                std::cerr << "Failed to read stat at index " << i << std::endl;
+            }
+        }
+    }
+    
+    return stats;
+}
+
 void Actions::print_feature_status()
 {
     size_t num_features = sizeof(features_names) / sizeof(features_names[0]);
+    std::cout << "Features List\n";
+    print_line('-', 50);
     for(int i=0; i<num_features; i++)
     {
-        std::cout << "Feature " << features_names[i] << ": ";
+        std::cout << "Feature " << std::left << std::setw(30) 
+        << features_names[i] << " : ";
         is_feature_enabled(i) ? std::cout << "Enabled" : std::cout << "Disabled";
-        std::cout << std::endl;
+        std::cout << std::setfill(' ') << std::endl;
     }
 }
+
+void Actions::print_ip_subnets() {
+    int map = maps::LPM_IP;
+    int map_fd = get_map_fd(maps_to_names[map]);
+    if (map_fd < 0) {
+        std::cerr << "Failed to get lpm_ip map fd" << std::endl;
+        return;
+    }
+
+    struct lpm_key_ip key{}, next_key{};
+    __u64 value;
+
+    std::cout << "IP Subnet Rules:" << std::endl;
+    while (bpf_map_get_next_key(map_fd, &key, &next_key) == 0) {
+        if (bpf_map_lookup_elem(map_fd, &next_key, &value) == 0) {
+            char ip_str[INET6_ADDRSTRLEN];
+            bool is_ipv4 = (next_key.prefixlen <= 32);
+
+            if (is_ipv4) {
+                if (!inet_ntop(AF_INET, next_key.data, ip_str, sizeof(ip_str))) {
+                    std::cerr << "Failed to convert IPv4 to string" << std::endl;
+                    continue;
+                }
+            } else {
+                if (!inet_ntop(AF_INET6, next_key.data, ip_str, sizeof(ip_str))) {
+                    std::cerr << "Failed to convert IPv6 to string" << std::endl;
+                    continue;
+                }
+            }
+
+            std::cout << ip_str << "/" << static_cast<int>(next_key.prefixlen)
+                      << " | " << value << std::endl;
+        }
+        key = next_key;
+    }
+}
+
+void Actions::print_overall_stats()
+{
+    auto stats = get_overall_stat();
+    
+    if(stats.empty())
+    {
+        std :: cerr << "Cannot get overall stat info" << std::endl;
+        return;
+    }
+    else
+    {
+        std::cout << "OVERALL STATS\n";
+        print_line('-', 40);
+        for(int i=S_DROPS; i<S_ICMP; i++)
+        {
+            std::cout << std::left << std::setw(20) << stat_labels[i] << " : " << stats[i] << std::endl;
+        }
+    }
+}
+
 
 Actions::~Actions()
 {

@@ -35,6 +35,9 @@ void CLI::print_usage(char **argv)
     std::cout << "    feature <FEATURE_NAME> disable\n\n";
     std::cout << "    feature list";
 
+    std::cout << "  [STAT command]\n";
+    std::cout << "    stat print\n";
+
     std::cout << "Arguments:\n";
     std::cout << "  mode         : possible attach modes (skb, native, offload)\n";
     std::cout << "  --interface  : interface name to be attached\n";
@@ -52,7 +55,7 @@ void CLI::print_usage(char **argv)
     std::cout << "Available Features:\n";
     std::cout << "--------------------------------------------------------------\n";
     std::cout << "  stat_conn         : Track incoming connection stats\n";
-    std::cout << "  lpm_rule          : Subnet-based rules for bypass/block\n";
+    std::cout << "  cidr_rule         : Subnet-based rules for bypass/block\n";
     std::cout << "  ip_block          : Block specific IP addresses\n";
     std::cout << "  port_block        : Block specific ports\n";
     std::cout << "  rate_limit        : Enable rate-limiting using token bucket\n";
@@ -131,6 +134,10 @@ void CLI::parse_cli(int argc, char **argv, Loader& loader, Actions& action_obj)
                 }
                 action_obj.del_ip_subnet(argv[5], argv[7]); // argv[5]=ip, argv[7]=pre
             }
+            else if(action == "print")
+            {
+                action_obj.print_ip_subnets();
+            }
             else {
                 std::cerr << "Unknown action for ip subnet.\n";
             }
@@ -188,10 +195,10 @@ void CLI::parse_cli(int argc, char **argv, Loader& loader, Actions& action_obj)
         std::string action = argv[3];
 
         if (action == "enable") {
-            action_obj.enable_feature(feature_name.c_str(), action.c_str()); // passing const char*
+            action_obj.set_feature(feature_name.c_str(), action.c_str()); // passing const char*
         }
         else if (action == "disable") {
-            action_obj.enable_feature(feature_name.c_str(), action.c_str());
+            action_obj.set_feature(feature_name.c_str(), action.c_str());
         }
         else {
             std::cerr << "Unknown action for feature.\n";
@@ -275,7 +282,24 @@ void CLI::parse_cli(int argc, char **argv, Loader& loader, Actions& action_obj)
             return;
         }
     }
-
+    else if(main_cmd == "stat")
+    {
+        if(argc < 2)
+        {
+            std::cerr << "Less arguments given\n";
+            return;
+        }
+        std::string sub_cmd = argv[2];
+        if(sub_cmd == "print")
+        {
+            action_obj.print_overall_stats();
+        }
+        else
+        {
+            std::cerr << "Unknown command " << sub_cmd << std::endl;
+            return;
+        }
+    }
     else {
         std::cerr << "Unknown main command.\n";
     }

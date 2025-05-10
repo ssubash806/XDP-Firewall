@@ -26,7 +26,7 @@ static __always_inline __u8 is_port_allowed(void* transport_hdr, __u8 ip_proto, 
     
     if(stat != NULL)
     {
-        // We have to block indefinitely or until expiration time or block indefinitely if it is 1
+        // We have to block indefinitely or until expiration time or block indefinitely if it is 0
         if((stat->expires == 0) || (*curr_time < stat->expires))
         {
             stat->dropped_count++;
@@ -42,7 +42,7 @@ static __always_inline __u8 is_ip_allowed(__be32* src_ip, __u64 *curr_time)
     struct block_stats* stat = bpf_map_lookup_elem(&ip_map, src_ip);
     if(stat != NULL)
     {
-        // If it is already 1, then block indefinitely or until expiration time
+        // If it is already 0, then block indefinitely or until expiration time
         if((stat->expires == 0) || (*curr_time < stat->expires))
         {
             stat->dropped_count++;
@@ -55,38 +55,10 @@ static __always_inline __u8 is_ip_allowed(__be32* src_ip, __u64 *curr_time)
 static __always_inline void update_stat(void* ip_hdr, void* transport_hdr, __u64* curr_time, bool is_ipv6)
 {
     struct client_tuple client;
-    __u8 trans_protocol;
-    if(is_ipv6)
-    {
-        struct ipv6hdr* ipv6_hdr = (struct ipv6hdr*) ip_hdr;
-        memcpy(&client.src_ipv6, &ipv6_hdr->saddr, sizeof(client.src_ipv6));
-        memcpy(&client.dest_ipv6, &ipv6_hdr->daddr, sizeof(client.dest_ipv6));
-        client.protocol = ipv6_hdr->nexthdr;
-        trans_protocol = ipv6_hdr->nexthdr;
-    }
-    else
-    {
-        struct iphdr* ipv4_hdr = (struct iphdr*) ip_hdr;
-        client.src_ipv4 = ipv4_hdr->saddr;
-        client.dest_ipv4 = ipv4_hdr->daddr;
-        client.protocol = ipv4_hdr->protocol;
-        trans_protocol = ipv4_hdr->protocol;
-    }
-    if(trans_protocol == IPPROTO_TCP)
-    {
-        struct tcphdr* tcp = (struct tcphdr*) transport_hdr;
-        client.src_port = tcp->source;
-        client.dst_port = tcp->dest;
-    }
-    else if(trans_protocol == IPPROTO_UDP)
-    {
-        struct udphdr* udp = (struct udphdr*) transport_hdr;
-        client.src_port = udp->source;
-        client.dst_port = udp->dest;
-    }
+    build_tuple(&client, ip_hdr, transport_hdr, is_ipv6);
 
     // first lookup in the map
-    struct client_data *data = bpf_map_lookup_elem(&cli_stat, &client);
+    struct client_data *data = (struct client_data *)bpf_map_lookup_elem(&cli_stat, &client);
     if (data == NULL)
     {
         struct client_data new_data = {
@@ -106,16 +78,20 @@ static __always_inline void update_stat(void* ip_hdr, void* transport_hdr, __u64
 
 static __always_inline int check_and_consume_token(struct client_data *data, __u64* now, __u32* src_ip)
 {
+
+    if(data == NULL)
+        return 1;
     __u64 elapsed_ns = *now - data->last_visit;
-
-    __u64 new_tokens = (elapsed_ns * TOKEN_BUCKET_RATE) / TOKEN_REFILL_RATE;
-    data->tokens = data->tokens + new_tokens;
-
+    __u64 new_tokens = (elapsed_ns / TOKEN_REFILL_RATE) * TOKEN_BUCKET_RATE;
+        
+    data->tokens += new_tokens;
+        
     if (data->tokens > TOKEN_BUCKET_CAPACITY) {
         data->tokens = TOKEN_BUCKET_CAPACITY;
     }
-
+        
     data->last_visit = *now;
+        
 
     if (data->tokens > 0) {
         data->tokens--;
@@ -126,11 +102,16 @@ static __always_inline int check_and_consume_token(struct client_data *data, __u
         if(is_feature_enabled(F_BLOCK_IP_ON_EXHAUST) && is_feature_enabled(F_IP_BLOCK)){
             if(data->times_exceeded >= TOKEN_EXHAUSTED_LIMIT)
             {
-                bpf_map_update_elem(&ip_map, src_ip, now + ONE_HOUR_IN_NS, BPF_ANY);
+                __u64 deadline = *now + TEN_MS_IN_NS;
+                struct block_stats block;
+                memset(&block, 0, sizeof(block));
+                block.expires = deadline;
+                block.dropped_count = 0;
+                bpf_map_update_elem(&ip_map, src_ip, &block, BPF_ANY);
             }
         }
-        return 1;
     }
+    return 0;
 }
 
 
@@ -192,17 +173,17 @@ static __always_inline __u8 filter_ipv4(struct xdp_md* packet)
         if(count != NULL)
         {
             *count = *count + 1;
+            
+            // We stat this LPM subnets also if this feature is enabled
+            if(is_feature_enabled(F_STAT_CONN))
+            {
+                if(ip_proto == IPPROTO_TCP)
+                    update_stat((void*)ip_hdr, (void*)tcp_hdr, &curr_time, false);
+                else if(ip_proto == IPPROTO_UDP)
+                    update_stat((void*)ip_hdr, (void*)udp, &curr_time, false);
+            }
+            return XDP_PASS;
         }
-
-        // We stat this LPM subnets also if this feature is enabled
-        if(is_feature_enabled(F_STAT_CONN))
-        {
-            if(ip_proto == IPPROTO_TCP)
-                update_stat((void*)ip_hdr, (void*)tcp_hdr, &curr_time, false);
-            else if(ip_proto == IPPROTO_UDP)
-                update_stat((void*)ip_hdr, (void*)udp, &curr_time, false);
-        }
-        return XDP_PASS;
     }
 
     if(is_feature_enabled(F_IP_BLOCK))
@@ -210,6 +191,7 @@ static __always_inline __u8 filter_ipv4(struct xdp_md* packet)
         __be32 src_ip = ip_hdr->saddr;
         if(is_ip_allowed(&src_ip, &curr_time) == FAILURE)
         {
+            bpf_printk("%u dropped", src_ip);
             return XDP_DROP;
         }
     }
@@ -244,9 +226,25 @@ static __always_inline __u8 filter_ipv4(struct xdp_md* packet)
 
     if(is_feature_enabled(F_RATE_LIMIT))
     {
+        if(!is_feature_enabled(F_STAT_CONN))
+            goto exit;
         
+        if(get_tcphdr(&tcp_hdr, pckt_start, pckt_end, false))
+        {
+            return XDP_PASS;
+        }
+        struct client_tuple tuple;
+        
+        build_tuple(&tuple, (void*)ip_hdr, (void*)tcp_hdr, false);
+        struct client_data *c_data = (struct client_data *)bpf_map_lookup_elem(&cli_stat, &tuple);
+        
+        if(c_data != NULL)
+        {
+            check_and_consume_token(c_data, &curr_time, &ip_hdr->saddr);
+        }
     }
 
+    exit:
     return XDP_PASS;
 }
 
