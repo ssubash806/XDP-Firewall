@@ -38,6 +38,15 @@ struct
     __uint(map_flags, 0);
 } ip_map SEC(".maps");
 
+struct
+{
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u32[4]);
+    __type(value, struct block_stats);
+    __uint(max_entries, IP_MAP_MAX_ENTRIES);
+    __uint(map_flags, 0);
+} ipv6_map SEC(".maps");
+
 // In value part we store how many packets passed through the LPM TRIE stats for each subnet!
 struct 
 {
@@ -52,7 +61,7 @@ struct
 // Note: IP addresses and port are stored in network byte order, so in user space program do proper conversions
 struct
 {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_LRU_HASH);
     __type(key, struct client_tuple);
     __type(value, struct client_data);
     __uint(max_entries, MAX_CLIENT_STAT);

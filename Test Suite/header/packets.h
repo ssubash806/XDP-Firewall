@@ -71,5 +71,5 @@ const std::vector<struct Test_Packets> Packets = {
 };
 
 const std::vector<__u64> expected_stats_count = {
-    5,2010,2012,2012,2,1
+    12,2003,0,0,2012,2012,2,1
 };

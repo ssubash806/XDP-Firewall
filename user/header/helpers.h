@@ -17,6 +17,8 @@
 /* If the program runs with user privileges, then returns true, else false */
 bool is_root();
 
+bool do_ip_conversion(const char* ip_str, __u32 *out_ip, bool *is_ipv6);
+
 /* Converts the ipv4 to __u32 in network byte order.
    Returns true, if conversion successfull, else returns false
    Param 1: ip address in decimal notation

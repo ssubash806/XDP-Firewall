@@ -126,18 +126,22 @@ bool Actions::is_feature_enabled(__u32 feature)
 
 void Actions::add_ip_block(const char* ip, const char* dur)
 {
-    int map = IP_MAP;
+    __u32 dec_ip[4] = {0};
+    bool is_ipv6 = false;
+    if(!do_ip_conversion(ip, dec_ip, &is_ipv6))
+        return;
+
+    int map;
     int feature = F_IP_BLOCK;
+    if(!is_ipv6)
+        map = maps::IP_MAP;
+    else
+        map = maps::IPV6_MAP;
+
 
     int fd = get_map_fd(maps_to_names[map]);
     if(fd > 0)
     {
-        __u32 dec_ip;
-        if(!convert_ipv4_to_u32(ip, &dec_ip))
-        {
-            std::cout << "Given IP address " << ip << " is not valid" << std::endl;
-            return;
-        }
         bool error = false;
         __u64 dur_ns = convert_duration(dur, error);
         if(error)
@@ -149,7 +153,7 @@ void Actions::add_ip_block(const char* ip, const char* dur)
         block.expires = dur_ns;
         block.dropped_count = 0;
 
-        int ret = bpf_map_update_elem(fd, &dec_ip, &block, BPF_NOEXIST);
+        int ret = bpf_map_update_elem(fd, dec_ip, &block, BPF_NOEXIST);
         if(ret == 0)
         {
             if(!is_feature_enabled(feature))
@@ -186,18 +190,21 @@ void Actions::add_ip_block(const char* ip, const char* dur)
 
 void Actions::del_ip_block(const char* ip)
 {
-    int map = IP_MAP;
+    __u32 dec_ip[4] = {0};
+    bool is_ipv6 = false;
+    if(!do_ip_conversion(ip, dec_ip, &is_ipv6))
+        return;
+
+    int map;
     int feature = F_IP_BLOCK;
+    if(!is_ipv6)
+        map = maps::IP_MAP;
+    else
+        map = maps::IPV6_MAP;
 
     int fd = get_map_fd(maps_to_names[map]);
     if(fd > 0)
     {
-        __u32 dec_ip;
-        if(!convert_ipv4_to_u32(ip, &dec_ip))
-        {
-            std::cout << "Given IP address " << ip << " is not valid" << std::endl;
-            return;
-        }
         int ret = bpf_map_delete_elem(fd, &dec_ip);
         if(ret == 0)
         {
@@ -322,6 +329,11 @@ void Actions::del_port_block(const char* port)
 
 void Actions::add_ip_subnet(const char* ip, const char* prefix_len)
 {
+    __u32 dec_ip[4];
+    bool is_ipv6 = false;
+    if(!do_ip_conversion(ip, dec_ip, &is_ipv6))
+        return;
+
     int map = maps::LPM_IP;
     int feature = features::F_LPM_RULE;
 
@@ -329,26 +341,30 @@ void Actions::add_ip_subnet(const char* ip, const char* prefix_len)
     if(fd > 0)
     {
         __u32 num_prefix_len = convert_string_to_u32(prefix_len);
-        if(num_prefix_len > 32)
+        if(!is_ipv6)
         {
-            std::cout<< "prefix len cannot be greater than 32!" << std::endl;
-            return;
+            if(num_prefix_len > IPv4_PREFIX_LEN)
+            {
+                std::cout<< "prefix len either invalid or cannot be greater than 32 for IPv4!" << std::endl;
+                return;
+            }
         }
-        if(num_prefix_len > 32)
+        else
         {
-            std::cout<< "prefix len cannot be greater than 32!" << std::endl;
-            return;
+            if(num_prefix_len > IPv6_PREFIX_LEN)
+            {
+                std::cout<< "prefix len either invalid or cannot be greater than 128 for IPv6!" << std::endl;
+                return;
+            }
         }
-        __u32 dec_ip;
-        if(!convert_ipv4_to_u32(ip, &dec_ip))
-        {
-            std::cout << "Given IP address " << ip << " is not valid" << std::endl;
-            return;
-        }
+        
         struct lpm_key_ip lpm = {
             .prefixlen = num_prefix_len,
         };
-        memcpy(&lpm.data, &dec_ip, 4);
+        if(!is_ipv6)
+            memcpy(&lpm.data, &dec_ip, IPv4_PREFIX_LEN / 8);
+        else
+            memcpy(&lpm.data, &dec_ip, IPv6_PREFIX_LEN / 8);
 
         __u64 count = 0;
         int ret = bpf_map_update_elem(fd, &lpm, &count, BPF_NOEXIST);
@@ -376,7 +392,6 @@ void Actions::add_ip_subnet(const char* ip, const char* prefix_len)
                       << ip << ", returned with ret code " 
                       << ret << std::endl;
         }    
-
     }
     else
     {
@@ -386,6 +401,11 @@ void Actions::add_ip_subnet(const char* ip, const char* prefix_len)
 
 void Actions::del_ip_subnet(const char* ip, const char* prefix_len)
 {
+    __u32 dec_ip[4];
+    bool is_ipv6 = false;
+    if(!do_ip_conversion(ip, dec_ip, &is_ipv6))
+        return;
+    
     int map = maps::LPM_IP;
     int feature = features::F_LPM_RULE;
 
@@ -393,21 +413,32 @@ void Actions::del_ip_subnet(const char* ip, const char* prefix_len)
     if(fd > 0)
     {
         __u32 num_prefix_len = convert_string_to_u32(prefix_len);
-        if(num_prefix_len > 32)
+        if(!is_ipv6)
         {
-            std::cout<< "prefix len cannot be greater than 32!" << std::endl;
-            return;
+            if(num_prefix_len > IPv4_PREFIX_LEN)
+            {
+                std::cout<< "prefix len either invalid or cannot be greater than 32 for IPv4!" << std::endl;
+                return;
+            }
         }
-        __u32 dec_ip;
-        if(!convert_ipv4_to_u32(ip, &dec_ip))
+        else
         {
-            std::cout << "Given IP address " << ip << " is not valid" << std::endl;
-            return;
+            if(num_prefix_len > IPv6_PREFIX_LEN)
+            {
+                std::cout<< "prefix len either invalid or cannot be greater than 128 for IPv6!" << std::endl;
+                return;
+            }
         }
+        
         struct lpm_key_ip lpm = {
             .prefixlen = num_prefix_len,
         };
-        memcpy(&lpm.data, &dec_ip, 4);
+
+        if(!is_ipv6)
+            memcpy(&lpm.data, &dec_ip, IPv4_PREFIX_LEN / 8);
+        else
+            memcpy(&lpm.data, &dec_ip, IPv6_PREFIX_LEN / 8);
+        
         int ret = bpf_map_delete_elem(fd, &lpm);
         if(ret == 0)
         {
@@ -670,7 +701,7 @@ void Actions::print_overall_stats()
     {
         std::cout << "OVERALL STATS\n";
         print_line('-', 40);
-        for(int i=S_DROPS; i<S_ICMP; i++)
+        for(int i=S_V4_DROPS; i<S_ICMP; i++)
         {
             std::cout << std::left << std::setw(20) << stat_labels[i] << " : " << stats[i] << std::endl;
         }

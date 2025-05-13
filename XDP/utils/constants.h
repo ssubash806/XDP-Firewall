@@ -4,6 +4,10 @@
 #define BE_ETH_PROTO_IP            8
 #define BE_ETH_PROTO_IP6           56710
 
+#define XDP_CONTINUE               18
+#define IPv4_PREFIX_LEN            32
+#define IPv6_PREFIX_LEN            128
+
 #define ONE_MS_IN_NS               1000000ULL   
 #define TEN_MS_IN_NS               10000000ULL
 #define HUNDRED_MS_IN_NS           100000000ULL
@@ -12,10 +16,8 @@
 
 #define PORT_MAP_MAX_ENTRIES       412
 #define IP_MAP_MAX_ENTRIES         412
-#define MAX_FEATURES               6
 #define MAX_TRIE_RULES             10
 #define MAX_CLIENT_STAT            10000
-#define MAX_STATS                  6
 
 // Modify this definitions according to your needs!
 #define TOKEN_BUCKET_CAPACITY      1000
@@ -24,6 +26,7 @@
 #define TOKEN_EXHAUSTED_LIMIT      3
 #define TOKEN_EXHAUSTED_TIME       ONE_HOUR_IN_NS // Time to block IP
 
+#define MAX_FEATURES               6
 enum features
 {
     F_STAT_CONN,          // This feature is used to stat the incoming connections.
@@ -36,10 +39,13 @@ enum features
     F_INVALID = -1,       // Only used in user space code 
 };
 
+#define MAX_STATS                  8
 enum stat_offset
 {
-    S_DROPS,           // Stat drops
-    S_PASS,            // Stat Pass
+    S_V4_DROPS,        // Stat ipv4 drops
+    S_V4_PASS,         // Stat ipv4 Pass
+    S_V6_DROPS,        // stat ipv6 drops
+    S_V6_PASS,         // stat ipv6 pass
     S_SYN,             // Stat Syn packets
     S_TCP,             // Stat number of TCP packets
     S_UDP,             // Stat number of UDP packets

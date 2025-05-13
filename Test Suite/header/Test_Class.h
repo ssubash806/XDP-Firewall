@@ -19,5 +19,5 @@ class Test
         void set_prog_fd(int);
         void start_test();
         void print_results();
-        ~Test();
+        
 };

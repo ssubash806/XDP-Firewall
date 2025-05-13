@@ -5,6 +5,21 @@ bool is_root()
     return geteuid() == 0 ? true : false;
 }
 
+bool do_ip_conversion(const char* ip_str, __u32 *out_ip, bool *is_ipv6)
+{
+    if(!convert_ipv4_to_u32(ip_str, out_ip))
+    {
+        if(!convert_ipv6_to_u128(ip_str, out_ip))
+        {
+            std::cout << "Given IP address " << ip_str << " is not valid" << std::endl;
+            return false;
+        }
+        else
+            *is_ipv6 = true;
+    }
+    return true;
+}
+
 bool convert_ipv4_to_u32(const char* ip_str, __u32* out_ip)
 {
     if (ip_str == nullptr || out_ip == nullptr) {

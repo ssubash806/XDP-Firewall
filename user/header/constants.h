@@ -17,6 +17,7 @@ enum maps
     PORT_MAP,
     FEATURE_MAP,
     IP_MAP,
+    IPV6_MAP,
     LPM_IP,
     CLI_STAT,
     STAT_MAP
@@ -28,6 +29,7 @@ const char *const maps_to_names[] = {
     "port_map",
     "feature_map",
     "ip_map",
+    "ipv6_map",
     "lpm_ip",
     "cli_stat",
     "stat_map"
@@ -50,8 +52,10 @@ const char* const status_names[] = {
 };
 
 const char* const stat_labels[] = {
-    "Dropped Packets",
-    "Passed Packets",
+    "IPv4 Dropped Packets",
+    "IPv4 Passed Packets",
+    "IPv6 Dropped Packets",
+    "IPv6 Passed Packets",
     "SYN Packets",
     "TCP Packets",
     "UDP Packets",
