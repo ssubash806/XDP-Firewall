@@ -25,10 +25,8 @@ It comes with a C++ user-space controller for easy interaction, blocking, unbloc
 - ✅ Indefinite blocking support
 - ✅ CLI-based interface for management
 - 🚧 **Upcoming:**
-  - IPv6 support
-  - Event-based logging (mysql database)
-  - Grafana-based visualization dashboard
-  - MySQL-ready export support for logging
+  - Test Suite support for IPv6 packets
+- ⚠️ IPv6 Not tested in real environment. Mak sure to test it before implementation.
 
 ---
 
@@ -78,23 +76,6 @@ sudo ./main port block print
 # Print IP blocks
 sudo ./main ip block print
 ```
----
-
-📊 Visualization
-
-This project is designed to log stats into MySQL for visualization in Grafana. A daily cronjob can sync block statistics from the BPF maps into a persistent database.
-📌 Roadmap
-
-Port & IP block with expiration
-
-Stats collection & CLI interface
-
-🔜 IPv6 support
-
-🔜 Log kernel-to-user events in real time
-
-🔜 Grafana dashboards for visual analysis
-
 ---
 📄 License
 
