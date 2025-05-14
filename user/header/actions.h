@@ -6,6 +6,7 @@
 #include <bpf/bpf.h>
 #include <cstring>
 #include <unistd.h>
+#include <array>
 #include <optional>
 #include "constants.h"
 #include "helpers.h"
@@ -23,6 +24,12 @@ struct Maps
     int val_size;
 };
 
+const int IPv4_WIDTH = 15;
+const int IPv6_WIDTH = 39;
+const int PORT_WIDTH =  7;
+const int TIME_WIDTH = 20;
+const int DROP_WIDTH = 14;
+const int STAT_WIDTH = 13;
 
 class Actions
 {
@@ -40,7 +47,10 @@ class Actions
         void add_ip_block(const char* ip, const char* dur);
         void del_ip_block(const char* ip);
         std::vector<std::pair<__u32, struct block_stats>> get_ip_block();
+        std::vector<std::pair<std::array<__u32, 4>, struct block_stats>> get_ipv6_block();
         void print_ip_block();
+        void print_ipv4_block();
+        void print_ipv6_block();
         std::optional<struct block_stats> get_block_stat_from_ipv4(const char* ip);
         void add_port_block(const char* port, const char* dur);
         void del_port_block(const char* port);

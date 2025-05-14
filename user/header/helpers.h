@@ -71,4 +71,6 @@ std::string epoch_to_local_string(__u64 epoch_time_sec);
 // Convert the u32 ipv4 into dotted decimal and store it in the passed char array
 bool u32_to_ipv4_str(char* out, size_t out_len, __u32 ip);
 
+bool u32_array_to_ipv6_str(char* out, size_t out_len, const __u32 ip[4]);
+
 void print_line(char character, int times);

@@ -375,7 +375,7 @@ void Actions::add_ip_subnet(const char* ip, const char* prefix_len)
                 std::cout << "Warning: Feature " << features_names[feature] << " is Disabled!" << std::endl;
             }
             std::cout << "Added the ip "
-                      << ip << " wint prefix len "
+                      << ip << " with prefix len "
                       << prefix_len << std::endl;
         }
         else if(ret == -EEXIST)
@@ -490,6 +490,38 @@ std::vector<std::pair<__u32, struct block_stats>> Actions::get_ip_block()
     return ip_block_data;
 }
 
+std::vector<std::pair<std::array<__u32, 4>, struct block_stats>> Actions::get_ipv6_block()
+{
+    int map = maps::IPV6_MAP;
+    int map_fd = get_map_fd(maps_to_names[map]);
+
+    std::vector<std::pair<std::array<__u32, 4>, struct block_stats>> ipv6_block_data;
+
+    if (map_fd > 0)
+    {
+        std::array<__u32, 4> key = {0}, next_key;
+        struct block_stats value;
+
+        bool has_entry = (bpf_map_get_next_key(map_fd, nullptr, key.data()) == 0);
+        while (has_entry) 
+        {
+            if (bpf_map_lookup_elem(map_fd, key.data(), &value) == 0) {
+                ipv6_block_data.emplace_back(key, value);
+            }
+
+            has_entry = (bpf_map_get_next_key(map_fd, key.data(), next_key.data()) == 0);
+            key = next_key;
+        }
+    }
+    else
+    {
+        std::cerr << "Map " << maps_to_names[map] << " is either not loaded or not found!" << std::endl;
+    }
+
+    return ipv6_block_data;
+}
+
+
 std::vector<std::pair<__u16, struct block_stats>> Actions::get_port_block()
 {
     int map = maps::PORT_MAP;
@@ -554,9 +586,12 @@ void Actions::print_port_block()
     {
         if (port_data.second.expires == 0)
         {
-            std::cout << port_data.first << " | Indefinitely"
-                      << " | " << port_data.second.dropped_count
-                      << " | Blocked" << std::endl;
+            std::cout << "  "
+                << std::left << std::setw(PORT_WIDTH)   << port_data.first
+                << "  " << std::left << std::setw(TIME_WIDTH) << "Indefinitely"
+                << "  " << std::left << std::setw(DROP_WIDTH) << port_data.second.dropped_count
+                << "  " << std::left << std::setw(STAT_WIDTH) << "Blocked"
+                << std::endl;
             continue;
         }
 
@@ -564,29 +599,42 @@ void Actions::print_port_block()
         bool is_expired = is_expired_epoch(epoch_time);
         std::string formatted_time = epoch_to_local_string(epoch_time);
 
-        std::cout << port_data.first << " | " << formatted_time
-                  << " | " << port_data.second.dropped_count
-                  << " | " << (is_expired ? "Expired" : "Not Expired") << std::endl;
+        std::cout << "  "
+          << std::left << std::setw(PORT_WIDTH)   << "Port"
+          << "  " << std::left << std::setw(TIME_WIDTH) << "Expires in"
+          << "  " << std::left << std::setw(DROP_WIDTH) << "Dropped"
+          << "  " << std::left << std::setw(STAT_WIDTH) << "Stats"
+          << std::endl;
+        print_line('-', 80);
+        std::cout << "  "
+          << std::left << std::setw(PORT_WIDTH)   << port_data.first
+          << "  " << std::left << std::setw(TIME_WIDTH) << formatted_time
+          << "  " << std::left << std::setw(DROP_WIDTH) << port_data.second.dropped_count
+          << "  " << std::left << std::setw(STAT_WIDTH) << (is_expired ? "Expired" : "Not Expired")
+          << std::endl;
     }
 }
 
-
-void Actions::print_ip_block()
-{    
-    auto ip_block = get_ip_block();
+void Actions::print_ip_block() {
     int feature = F_IP_BLOCK;
     if(!is_feature_enabled(feature))
     {
         std::cerr << "Warning: Feature IP block is not enabled!" << std::endl;
     }
+    print_ipv4_block();
+    std::cout << "\n\n";
+    print_ipv6_block();
+}
+
+void Actions::print_ipv4_block()
+{    
+    auto ip_block = get_ip_block();
     if(ip_block.empty())
     {
-        std::cout << "No entries found in IP block map" << std::endl;
+        std::cout << "No entries found in IPv4 block map" << std::endl;
         return;
     }
     
-    std::cout << "IP blocked status" << std::endl;
-    print_line('-', 60);
     for(auto& ip: ip_block)
     {
         char ip_addr[INET_ADDRSTRLEN];
@@ -598,9 +646,12 @@ void Actions::print_ip_block()
 
         if(ip.second.expires == 0)
         {
-            std::cout << ip_addr << " | Indefinitely"
-                      << " | " << ip.second.dropped_count
-                      << " | Blocked" << std::endl;
+            std::cout << "  "
+                << std::left << std::setw(IPv4_WIDTH)   << ip_addr
+                << "  " << std::left << std::setw(TIME_WIDTH) << "Indefinitely"
+                << "  " << std::left << std::setw(DROP_WIDTH) << ip.second.dropped_count
+                << "  " << std::left << std::setw(STAT_WIDTH) << "Blocked"
+                << std::endl;
             continue;
         }
 
@@ -608,9 +659,72 @@ void Actions::print_ip_block()
         bool is_expired = is_expired_epoch(epoch_time);
         std::string formatted_time = epoch_to_local_string(epoch_time);
 
-        std::cout << ip_addr << " | " << formatted_time
-                  << " | " << ip.second.dropped_count
-                  << " | " << (is_expired ? "Expired" : "Not Expired") << std::endl;
+        std::cout << "  "
+          << std::left << std::setw(IPv4_WIDTH)   << "IPv4"
+          << "  " << std::left << std::setw(TIME_WIDTH) << "Expires in"
+          << "  " << std::left << std::setw(DROP_WIDTH) << "Dropped"
+          << "  " << std::left << std::setw(STAT_WIDTH) << "Stats"
+          << std::endl;
+        print_line('-', 80);
+        std::cout << "  "
+          << std::left << std::setw(IPv4_WIDTH)   << ip_addr
+          << "  " << std::left << std::setw(TIME_WIDTH) << formatted_time
+          << "  " << std::left << std::setw(DROP_WIDTH) << ip.second.dropped_count
+          << "  " << std::left << std::setw(STAT_WIDTH) << (is_expired ? "Expired" : "Not Expired")
+          << std::endl;
+    }
+}
+
+void Actions::print_ipv6_block()
+{
+    auto ipv6_block = get_ipv6_block();
+    if (ipv6_block.empty())
+    {
+        std::cout << "No entries found in IPv6 block map" << std::endl;
+        return;
+    }
+
+    for (const auto& entry : ipv6_block)
+    {
+        const auto& ip_arr = entry.first;
+        const auto& stats = entry.second;
+        __u32 raw_ip[4];
+        std::copy(ip_arr.begin(), ip_arr.end(), raw_ip);
+        char ipv6_addr[INET6_ADDRSTRLEN];
+        if (!u32_array_to_ipv6_str(ipv6_addr, sizeof(ipv6_addr), raw_ip))
+        {
+            std::cerr << "Conversion of IPv6 address to string failed!" << std::endl;
+            continue;
+        }
+
+        if (stats.expires == 0)
+        {
+            std::cout << "  "
+                << std::left << std::setw(IPv6_WIDTH)   << ipv6_addr
+                << "  " << std::left << std::setw(TIME_WIDTH) << "Indefinitely"
+                << "  " << std::left << std::setw(DROP_WIDTH) << stats.dropped_count
+                << "  " << std::left << std::setw(STAT_WIDTH) << "Blocked"
+                << std::endl;
+            continue;
+        }
+
+        __u64 epoch_time = ktime_to_epoch_seconds(stats.expires);
+        bool is_expired = is_expired_epoch(epoch_time);
+        std::string formatted_time = epoch_to_local_string(epoch_time);
+
+        std::cout << "  "
+          << std::left << std::setw(IPv6_WIDTH)   << "IPv6"
+          << "  " << std::left << std::setw(TIME_WIDTH) << "Expires in"
+          << "  " << std::left << std::setw(DROP_WIDTH) << "Dropped"
+          << "  " << std::left << std::setw(STAT_WIDTH) << "Stats"
+          << std::endl;
+        print_line('-', 80);
+        std::cout << "  "
+          << std::left << std::setw(IPv6_WIDTH)   << ipv6_addr
+          << "  " << std::left << std::setw(TIME_WIDTH) << formatted_time
+          << "  " << std::left << std::setw(DROP_WIDTH) << stats.dropped_count
+          << "  " << std::left << std::setw(STAT_WIDTH) << (is_expired ? "Expired" : "Not Expired")
+          << std::endl;
     }
 }
 
@@ -664,6 +778,7 @@ void Actions::print_ip_subnets() {
     __u64 value;
 
     std::cout << "IP Subnet Rules:" << std::endl;
+    print_line('-', 60);
     while (bpf_map_get_next_key(map_fd, &key, &next_key) == 0) {
         if (bpf_map_lookup_elem(map_fd, &next_key, &value) == 0) {
             char ip_str[INET6_ADDRSTRLEN];

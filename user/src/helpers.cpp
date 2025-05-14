@@ -232,6 +232,22 @@ bool u32_to_ipv4_str(char* out, size_t out_len, __u32 ip) {
     return result != nullptr;
 }
 
+bool u32_array_to_ipv6_str(char* out, size_t out_len, const __u32 ip[4]) {
+    if (out == nullptr || ip == nullptr || out_len < INET6_ADDRSTRLEN)
+        return false;
+
+    struct in6_addr addr;
+    std::memset(&addr, 0, sizeof(addr));
+
+    for (int i = 0; i < 4; ++i) {
+        __u32 word = (ip[i]);  
+        std::memcpy(&addr.s6_addr[i * 4], &word, 4);
+    }
+
+    const char* result = inet_ntop(AF_INET6, &addr, out, out_len);
+    return result != nullptr;
+}
+
 void print_line(char character, int times)
 {
     std::cout << std::setfill(character) << std::setw(times) << "" <<std::endl;
