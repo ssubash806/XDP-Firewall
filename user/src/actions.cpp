@@ -569,6 +569,31 @@ std::optional<struct block_stats> Actions::get_block_stat_from_ipv4(const char* 
     return std::nullopt;
 }
 
+std::optional<struct block_stats> Actions::get_block_stat_from_ipv6(const char* ip)
+{
+    auto ipv6_stats = get_ipv6_block();
+    if(ipv6_stats.empty())
+    {
+        return std::nullopt;
+    }
+    __u32 dec_ip[4] = {0};
+    if(!convert_ipv6_to_u128(ip, dec_ip))
+    {
+        std::cerr << "Invalid IP provided: " << ip << std::endl;
+        return std::nullopt;
+    }
+    for(auto& ipv6_stat: ipv6_stats)
+    {
+        __u32 raw_ip[4] = {0};
+        std::copy(ipv6_stat.first.begin(), ipv6_stat.first.end(), raw_ip);
+        if(memcmp(dec_ip, raw_ip, sizeof(dec_ip[0]) * 4) == 0)
+        {
+            return ipv6_stat.second;
+        }
+    }
+    return std::nullopt;
+}
+
 void Actions::print_port_block()
 {
     auto port_block = get_port_block();

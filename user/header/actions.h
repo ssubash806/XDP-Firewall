@@ -52,6 +52,7 @@ class Actions
         void print_ipv4_block();
         void print_ipv6_block();
         std::optional<struct block_stats> get_block_stat_from_ipv4(const char* ip);
+        std::optional<struct block_stats> get_block_stat_from_ipv6(const char* ip);
         void add_port_block(const char* port, const char* dur);
         void del_port_block(const char* port);
         std::vector<std::pair<__u16, struct block_stats>> get_port_block();

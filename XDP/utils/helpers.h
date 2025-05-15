@@ -252,7 +252,7 @@ static __always_inline __u8 is_port_allowed(void* transport_hdr, __u8 ip_proto, 
         return XDP_DROP;
     
     struct block_stats* stat = (struct block_stats*)bpf_map_lookup_elem(&port_map, &dest_port);
-    
+
     if(stat != NULL)
     {
         // We have to block indefinitely or until expiration time or block indefinitely if it is 0
@@ -282,7 +282,6 @@ static __always_inline __u8 is_ip_allowed(void* src_ip, __u64 *curr_time, bool i
             return XDP_DROP;
         }
     }
-    
     return XDP_CONTINUE;
 }
 
@@ -396,7 +395,7 @@ static __always_inline __u8 handle_rate_limit(void* ip_hdr, void* trans_hdr, __u
     
     struct client_tuple tuple;
     
-    build_tuple(&tuple, (void*)ip_hdr, (void*)trans_hdr, false);
+    build_tuple(&tuple, (void*)ip_hdr, (void*)trans_hdr, is_ipv6);
     struct client_data *c_data = (struct client_data *)bpf_map_lookup_elem(&cli_stat, &tuple);
     
     if(c_data != NULL)

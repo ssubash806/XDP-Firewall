@@ -1,8 +1,9 @@
-from scapy.all import Ether, IP, TCP, Raw
+from scapy.all import Ether, IP, TCP, Raw, IPv6
 import base64
 
-eth_layer = Ether(src="00:11:22:33:44:55", dst="66:77:88:99:aa:bb", type=0x0800)
-ip_layer = IP(src="10.0.0.2", dst="192.168.1.1")
+eth_layer = Ether(src="00:11:22:33:44:55", dst="66:77:88:99:aa:bb")
+#ip_layer = IP(src="10.0.0.2", dst="192.168.1.1")
+ip_layer = IPv6(src="2001:db8::4", dst="fd00::1")
 tcp_layer = TCP(sport=12345, dport=80, flags="S", seq=1000)
 payload = Raw(load="Hello to firewall")
 

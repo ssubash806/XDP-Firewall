@@ -139,6 +139,7 @@ static __always_inline int filter_ipv6(struct xdp_md* packet)
             break;
         
         case IPPROTO_ICMP:
+        case IPPROTO_ICMPV6:
             update_stat_map(S_ICMP);
             break;
         
@@ -148,11 +149,11 @@ static __always_inline int filter_ipv6(struct xdp_md* packet)
 
     __u64 curr_time = bpf_ktime_get_ns();
 
+    if(ip_proto == IPPROTO_ICMPV6 || ip_proto == IPPROTO_ICMP)
+        return XDP_PASS;
+
     if(trans_hdr == NULL)
         return XDP_DROP;
-    
-    if(ip_proto == IPPROTO_ICMPV6)
-        return XDP_PASS;
 
     if(is_feature_enabled(F_LPM_RULE))
     {
@@ -226,6 +227,7 @@ int ingress_filter(struct xdp_md* packet)
         {
             update_stat_map(S_V6_PASS);
         }
+        return ret;
     }
     return XDP_PASS;
 }

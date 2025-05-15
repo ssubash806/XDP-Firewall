@@ -59,32 +59,47 @@ void Test::start_test()
     action.add_port_block("80", "1m");
     test_results.emplace_back(send_packet(Packets[0]));
     test_results.emplace_back(send_packet(Packets[1]));
+    test_results.emplace_back(send_packet(Packets[2]));
+    test_results.emplace_back(send_packet(Packets[3]));
     
     // We are disabling and enabling port blocks, so that we can isloate the return value of IP block alone
     // Even some how on code changes IP block allows blocked IP, port block to 80, drops it which means the return value is always XDP_DROP, but due to port block not IP block
     action.set_feature("port_block", "disable");
     action.set_feature("ip_block", "enable");
     action.add_ip_block("10.0.0.2", "1m");
-    test_results.emplace_back(send_packet(Packets[2]));
-    test_results.emplace_back(send_packet(Packets[3]));
+    action.add_ip_block("2001:db8::2", "1m");
+    test_results.emplace_back(send_packet(Packets[4]));
+    test_results.emplace_back(send_packet(Packets[5]));
+    test_results.emplace_back(send_packet(Packets[6]));
+    test_results.emplace_back(send_packet(Packets[7]));
     action.set_feature("port_block", "enable");
 
     action.set_feature("cidr_rule", "enable");
     action.add_ip_subnet("10.0.0.0", "24");
-    test_results.emplace_back(send_packet(Packets[4]));
+    action.add_ip_subnet("2001:db8::", "64");
+    test_results.emplace_back(send_packet(Packets[8]));
+    test_results.emplace_back(send_packet(Packets[9]));
     // We do this, because IP block is first being checked in XDP program.
     // We needed to make sure that it didn't hit port_block too
     action.set_feature("ip_block", "disable");
-    test_results.emplace_back(send_packet(Packets[5]));
+    test_results.emplace_back(send_packet(Packets[10]));
+    test_results.emplace_back(send_packet(Packets[11]));
 
     // Remove the LPM rule and port block to allow packets to reach rate limiting section
     action.del_ip_subnet("10.0.0.0", "24");
+    action.del_ip_subnet("2001:db8::", "64");
     action.del_port_block("80");
 
     // If rate limiting alone enabled the IP should not be blocked
     action.set_feature("rate_limit", "enable");
-    send_packet(Packets[6], false, 1004);
+    send_packet(Packets[12], false, 1004);
     if(action.get_block_stat_from_ipv4("10.0.0.3").has_value())
+        test_results.emplace_back(false);
+    else
+        test_results.emplace_back(true);
+    
+    send_packet(Packets[13], false, 1004);
+    if(action.get_block_stat_from_ipv6("2001:db8::3").has_value())
         test_results.emplace_back(false);
     else
         test_results.emplace_back(true);
@@ -92,14 +107,21 @@ void Test::start_test()
     // If block_ip_on_ehaust enabled IP should be blocked
     action.set_feature("ip_block", "enable");
     action.set_feature("block_ip_on_exhaust", "enable");
-    send_packet(Packets[7], false, 1004);
+    send_packet(Packets[14], false, 1004);
     if(action.get_block_stat_from_ipv4("10.0.0.4").has_value())
         test_results.emplace_back(true);
     else
         test_results.emplace_back(false);
     
+    send_packet(Packets[15], false, 1004);
+    if(action.get_block_stat_from_ipv6("2001:db8::4").has_value())
+        test_results.emplace_back(true);
+    else
+        test_results.emplace_back(false);
+    
     //Testing ICMP packets
-    test_results.emplace_back(send_packet(Packets[8]));
+    test_results.emplace_back(send_packet(Packets[16]));
+    test_results.emplace_back(send_packet(Packets[17]));
 
     overall_stats = action.get_overall_stat();
 
@@ -135,7 +157,7 @@ void Test::print_results()
     std::cout << "\n\n-----------------------Test Results---------------------------\n";
     for(int i = 0; i < test_results.size(); i++)
     {
-        std::cout << std::left << std::setw(60)
+        std::cout << std::left << std::setw(70)
           << Packets[i].description
           << " : "
           << (test_results[i] ? "Success" : "Failure")
@@ -150,4 +172,16 @@ void Test::print_results()
           << "  -  " << ((overall_stats[i] == expected_stats_count[i]) ? "Matched" : "Not Matched")
           << std::endl;
     }
+}
+
+void Test::test_single_packet() {
+    Actions action;
+    action.get_maps();
+    action.set_feature("stat_conn", "enable");
+    action.set_feature("rate_limit", "enable");
+    action.set_feature("ip_block", "enable");
+    action.set_feature("block_ip_on_exhaust", "enable");
+
+    auto ret = send_packet(Packets[15]) ? "Success" : "Failure";
+    std::cout << ret << std::endl;
 }
