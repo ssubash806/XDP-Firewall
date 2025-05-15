@@ -7,6 +7,9 @@
 ![License](https://img.shields.io/github/license/ssubash806/XDP-Firewall?style=flat-square)
 
 ---
+⚠️ Still under development.
+---
+---
 
 ## 🔥 Introduction
 
@@ -25,8 +28,9 @@ It comes with a C++ user-space controller for easy interaction, blocking, unbloc
 - ✅ Indefinite blocking support
 - ✅ CLI-based interface for management
 - 🚧 **Upcoming:**
-  - Test Suite support for IPv6 packets
-- ⚠️ IPv6 Not tested in real environment. Mak sure to test it before implementation.
+  - Drop Syn flood,Udp flood and ICMP flood.
+  - Automatic deletion of block entries after expiration in kernel program.
+- ⚠️ IPv6 Tested via Test suite, not tested on a real environment. Make sure to test it before deployment.
 
 ---
 
