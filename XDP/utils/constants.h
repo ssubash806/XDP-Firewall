@@ -12,6 +12,9 @@
 #define TEN_MS_IN_NS               10000000ULL
 #define HUNDRED_MS_IN_NS           100000000ULL
 #define ONE_SEC_IN_NS              1000000000ULL
+#define ONE_MIN_IN_NS              (60ULL * ONE_SEC_IN_NS)
+#define TEN_MIN_IN_NS              (10ULL * ONE_MIN_IN_NS)
+#define THIRTY_MIN_IN_NS           (30ULL * ONE_MIN_IN_NS)
 #define ONE_HOUR_IN_NS             3600000000000ULL
 
 #define PORT_MAP_MAX_ENTRIES       412
@@ -24,7 +27,7 @@
 #define TOKEN_BUCKET_RATE          5
 #define TOKEN_REFILL_RATE          TEN_MS_IN_NS
 #define TOKEN_EXHAUSTED_LIMIT      3
-#define TOKEN_EXHAUSTED_TIME       ONE_HOUR_IN_NS // Time to block IP
+#define TOKEN_EXHAUSTED_TIME       TEN_MIN_IN_NS // Time to block IP
 
 #define MAX_FEATURES               6
 enum features

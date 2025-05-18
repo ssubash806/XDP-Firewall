@@ -256,11 +256,22 @@ static __always_inline __u8 is_port_allowed(void* transport_hdr, __u8 ip_proto, 
     if(stat != NULL)
     {
         // We have to block indefinitely or until expiration time or block indefinitely if it is 0
-        if((stat->expires == 0) || (*curr_time < stat->expires))
+        if(stat->expires == 0)
         {
+            goto drop;
+        }
+        else if(*curr_time < stat->expires)
+        {
+            goto drop;
+        }
+        else
+        {
+            bpf_map_delete_elem(&port_map, &dest_port);
+            return XDP_CONTINUE;
+        }
+        drop:
             stat->dropped_count++;
             return XDP_DROP;
-        }
     }
     return XDP_CONTINUE;
 }
@@ -276,11 +287,25 @@ static __always_inline __u8 is_ip_allowed(void* src_ip, __u64 *curr_time, bool i
     if(stat != NULL)
     {
         // If it is already 0, then block indefinitely or until expiration time
-        if((stat->expires == 0) || (*curr_time < stat->expires))
+        if(stat->expires == 0)
         {
+            goto drop;
+        }
+        else if(*curr_time < stat->expires)
+        {
+            goto drop;
+        }
+        else
+        {
+            if(!is_ipv6)
+                bpf_map_delete_elem(&ip_map, src_ip);
+            else
+                bpf_map_delete_elem(&ipv6_map, src_ip);
+            return XDP_CONTINUE;
+        }
+        drop:
             stat->dropped_count++;
             return XDP_DROP;
-        }
     }
     return XDP_CONTINUE;
 }
